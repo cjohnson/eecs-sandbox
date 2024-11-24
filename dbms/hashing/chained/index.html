@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chained Hashing Demo</title>
+    <script src="https://code.createjs.com/1.0.0/createjs.min.js"></script>
+</head>
+<body>
+    <h1 style="font-family: sans-serif;">EECS Sandbox - Database Management Systems</h1>
+    <h2 style="font-family: sans-serif;">Chained Hashing Demo</h2>
+    <form id="config-form">
+        <label for="n"><p style="font-family:sans-serif">N (# linked lists)</p></label>
+        <input type="text" name="n" id="n" />
+        <label for="b"><p style="font-family:sans-serif;">B (# entries per bucket)</p></label>
+        <input type="text" name="b" id="b" />
+        <br/>
+        <button style="margin-top: 1rem" type="submit">Configure</button>
+    </form>
+    <hr/>
+    <form id="add-form">
+        <input type="text" name="in" id="in" />
+        <button style="margin-top: 1rem" type="submit">Insert</button>
+    </form>
+    <canvas style="margin-top: 1rem" id="demo-canvas" width="1000" height="1000"></canvas>
+    <div id="logs"></div>
+    <script>
+        const params = new URLSearchParams(document.location.search);
+        const n = params.get("n") ?? 2;
+        const b = params.get("b") ?? 2;
+        document.querySelector("#n").value = n;
+        document.querySelector("#b").value = b;
+
+        const table = [];
+        for (var i = 0; i < n; ++i) {
+            table.push([]);
+        }
+
+        const bucketRectangleWidthPixels = 100;
+        const bucketRectangleHeightPixels = 50;
+
+        const bucketIdTextSizePixels = 24;
+        const bucketIdTextSizeWidth = n.toString().length * bucketIdTextSizePixels;
+        const bucketPointerWidth = bucketIdTextSizeWidth + bucketRectangleWidthPixels;
+        const bucketPointerHeight = bucketRectangleHeightPixels;
+        function renderBucketPointer(bucketId) {
+            var container = new createjs.Container();
+
+            var bucketIdText = new createjs.Text(bucketId, `${bucketIdTextSizePixels}px sans-serif`);
+            bucketIdText.set({
+                textAlign: "left",
+                textBaseline: "middle",
+                x: 0,
+                y: bucketRectangleHeightPixels / 2,
+            });
+            
+            var bucketPointer = new createjs.Shape();
+            bucketPointer.graphics
+                .beginStroke("black")
+                .drawRect(
+                    bucketIdTextSizeWidth,
+                    0,
+                    bucketRectangleWidthPixels,
+                    bucketRectangleHeightPixels);
+
+            container.addChild(bucketIdText, bucketPointer);
+            return container;
+        }
+
+        const bucketPointerLineSpace = 64;
+        const bucketWidth = b * bucketRectangleWidthPixels + bucketPointerLineSpace;
+        const bucketHeight = bucketRectangleHeightPixels;
+        function renderBucket(bucketId, listIndex, block) {
+            var container = new createjs.Container();
+            
+            for (var i = 0; i < b; ++i) {
+                var bucket = new createjs.Shape();
+                
+                bucket.graphics
+                    .beginStroke("black")
+                    .drawRect(
+                        i * bucketRectangleWidthPixels + bucketPointerLineSpace,
+                        0,
+                        bucketRectangleWidthPixels,
+                        bucketRectangleHeightPixels)
+                    .moveTo(
+                        0,
+                        bucketRectangleHeightPixels / 2)
+                    .lineTo(
+                        bucketPointerLineSpace,
+                        bucketRectangleHeightPixels / 2);
+                
+                container.addChild(bucket);
+                
+                if (i < block.length) {
+                    var text = new createjs.Text(`${block[i]}*`, "20px sans-serif");
+                    text.set({
+                        textAlign: "center",
+                        textBaseline: "middle",
+                        x: i * bucketRectangleWidthPixels + bucketPointerLineSpace + bucketRectangleWidthPixels / 2,
+                        y: bucketRectangleHeightPixels / 2,
+                    });
+
+                    container.addChild(text);
+                }
+            }
+
+            return container;
+        }
+
+        const stage = new createjs.Stage("demo-canvas");
+        function render() {
+            stage.clear();
+
+            var bucketPointersTextSizePixels = 20;
+            var bucketPointersText = new createjs.Text("Bucket Pointers", `${bucketPointersTextSizePixels}px sans-serif`);
+            bucketPointersText.x = 0;
+            bucketPointersText.y = 0;
+            stage.addChild(bucketPointersText);
+
+            for (var i = 0; i < n; ++i) {
+                var bucketPointer = renderBucketPointer(i);
+                bucketPointer.x = 0;
+                bucketPointer.y = (bucketPointerHeight + 10) * i + (bucketPointersTextSizePixels + 10);
+                stage.addChild(bucketPointer);
+
+                for (var j = 0; j < table[i].length; ++j) {
+                    var bucket = renderBucket(i, j, table[i][j]);
+                    bucket.x = bucketPointerWidth + j * bucketWidth;
+                    bucket.y = (bucketPointerHeight + 10) * i + (bucketPointersTextSizePixels + 10);
+                    stage.addChild(bucket);
+                }
+            }
+
+            stage.update();
+        }
+        render();
+
+        function insert(a) {
+            i = a % n;
+            const list = table[i];
+            var lastBlock = list[list.length - 1];
+            if (!lastBlock || lastBlock.length >= b) {
+                list.push([]);
+                lastBlock = list[list.length - 1];
+            }
+            lastBlock.push(a);
+        }
+        
+        const inputField = document.querySelector("#in");
+        document.querySelector("#add-form").addEventListener("submit", (event) => {
+            event.preventDefault();
+
+            insert(parseInt(inputField.value));
+            render();
+
+            inputField.value = null;
+        });
+    </script>
+</body>
+</html>
